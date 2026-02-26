@@ -19,6 +19,8 @@ let allItems = [];
 let filteredItems = [];
 let activeId = null;
 
+video.crossOrigin = "anonymous";
+
 function updateStatus(text) {
   statusText.textContent = text;
 }
@@ -219,6 +221,7 @@ function selectItem(item) {
     }
   } else {
     video.src = item.url;
+    video.load();
   }
 
   if (location.protocol === "https:" && item.url.startsWith("http://")) {
@@ -260,6 +263,7 @@ function loadPlaylist(text, displayName) {
   playerGroup.textContent = "Keine Kategorie";
   playerUrl.textContent = "Kein Stream geladen";
   video.removeAttribute("src");
+  video.load();
 }
 
 function handleFile(file) {
@@ -318,31 +322,38 @@ function setupDragAndDrop() {
   });
 }
 
-async function tryAutoLoad() {
-  const rootTarget = "/ÖmersIPTV.m3u";
-  const localTarget = "./ÖmersIPTV.m3u";
+async function tryFetchPlaylist(url) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    return null;
+  }
+  return response.text();
+}
 
-  try {
-    const response = await fetch(rootTarget);
-    if (response.ok) {
-      const text = await response.text();
-      loadPlaylist(text, rootTarget);
-      return;
+async function tryAutoLoad() {
+  const autoFileName = "ÖmersIPTV.m3u";
+  const localUrl = new URL(autoFileName, window.location.href);
+  const rootUrl = new URL(`/${autoFileName}`, window.location.origin);
+  const candidates = [localUrl, rootUrl];
+
+  updateStatus("Lade ÖmersIPTV.m3u...");
+
+  for (const candidate of candidates) {
+    try {
+      const text = await tryFetchPlaylist(candidate);
+      if (text) {
+        loadPlaylist(text, candidate.pathname || candidate.toString());
+        return;
+      }
+    } catch (err) {
+      // try next
     }
-  } catch (err) {
-    // ignore and try local
   }
 
-  try {
-    const response = await fetch(localTarget);
-    if (!response.ok) {
-      updateStatus("ÖmersIPTV.m3u nicht gefunden.");
-      return;
-    }
-    const text = await response.text();
-    loadPlaylist(text, localTarget);
-  } catch (err) {
-    updateStatus("Auto-Load fehlgeschlagen (Datei nicht erreichbar).");
+  if (location.protocol === "file:") {
+    updateStatus("Auto-Load blockiert (file://). Starte die App über einen lokalen Server.");
+  } else {
+    updateStatus("ÖmersIPTV.m3u nicht gefunden (Root oder aktueller Ordner).");
   }
 }
 
