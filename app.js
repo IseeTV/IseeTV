@@ -319,17 +319,30 @@ function setupDragAndDrop() {
 }
 
 async function tryAutoLoad() {
-  const target = "/ÖmersIPTV.m3u";
+  const rootTarget = "/ÖmersIPTV.m3u";
+  const localTarget = "./ÖmersIPTV.m3u";
+
   try {
-    const response = await fetch(target);
+    const response = await fetch(rootTarget);
+    if (response.ok) {
+      const text = await response.text();
+      loadPlaylist(text, rootTarget);
+      return;
+    }
+  } catch (err) {
+    // ignore and try local
+  }
+
+  try {
+    const response = await fetch(localTarget);
     if (!response.ok) {
-      updateStatus("ÖmersIPTV.m3u nicht im Root gefunden.");
+      updateStatus("ÖmersIPTV.m3u nicht gefunden.");
       return;
     }
     const text = await response.text();
-    loadPlaylist(text, target);
+    loadPlaylist(text, localTarget);
   } catch (err) {
-    updateStatus("Auto-Load fehlgeschlagen (Root nicht erreichbar).");
+    updateStatus("Auto-Load fehlgeschlagen (Datei nicht erreichbar).");
   }
 }
 
